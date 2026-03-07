@@ -39,7 +39,7 @@ Der Oracle ARM Server empfängt den Traffic auf dem öffentlichen Port und leite
 Script herunterladen:
 
 ```bash
-curl -O https://raw.githubusercontent.com/<dein-username>/<dein-repo>/main/expose-port.sh
+curl -O https://raw.githubusercontent.com/Mozra-the-great/expose-port/main/expose-port.sh
 chmod +x expose-port.sh
 ```
 
