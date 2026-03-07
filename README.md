@@ -30,7 +30,7 @@ Der Oracle ARM Server empfängt den Traffic auf dem öffentlichen Port und leite
   - `enp1s0` – Game Traffic (mit Public IP)
 - Tailscale auf Oracle und auf dem Heimserver installiert
 - Subnet Router auf dem Heimserver der das LAN advertised
-- Pterodactyl Wings läuft auf `192.168.0.21` (Beispiel – muss auf deine Wings VM IP angepasst werden)
+- Pterodactyl Wings läuft auf `192.168.10.21` (Beispiel – muss auf deine Wings VM IP angepasst werden)
 
 ---
 
@@ -106,7 +106,7 @@ Unter `http://<panel-ip>/admin/nodes/1/allocation`:
 Am Anfang des Scripts können folgende Variablen angepasst werden:
 
 ```sh
-WINGS_IP="192.168.0.21"     # Interne IP der Wings VM
+WINGS_IP="192.168.10.21"     # Interne IP der Wings VM
 PUBLIC_IFACE="enp1s0"       # NIC mit Public IP
 TAILSCALE_IFACE="tailscale0" # Tailscale Interface
 NFT_TABLE="gamenat"          # nftables Tabellenname
@@ -122,7 +122,7 @@ NFT_TABLE="gamenat"          # nftables Tabellenname
 2. Tailscale Verbindung aktiv?
    ```bash
    tailscale status
-   ping 192.168.0.21
+   ping 192.168.10.21
    ```
 3. Wings läuft?
    ```bash
@@ -130,7 +130,7 @@ NFT_TABLE="gamenat"          # nftables Tabellenname
    ```
 4. Lauscht der Game Server auf dem Port?
    ```bash
-   ssh root@192.168.0.21
+   ssh root@192.168.10.21
    ss -tlnp | grep <PORT>
    ```
 
