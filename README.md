@@ -30,7 +30,7 @@ Der Oracle ARM Server empfängt den Traffic auf dem öffentlichen Port und leite
   - `enp1s0` – Game Traffic (mit Public IP)
 - Tailscale auf Oracle und auf dem Heimserver installiert
 - Subnet Router auf dem Heimserver der das LAN advertised
-- Pterodactyl Wings läuft auf `192.168.0.21`
+- Pterodactyl Wings läuft auf `192.168.0.21` (Beispiel: Muss aber eben angepasst werden)
 
 ---
 
