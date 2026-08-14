@@ -178,4 +178,4 @@ sudo nft list ruleset > /etc/nftables.conf
 
 ## Lizenz
 
-MIT
+GNU General Public License v3.0 — siehe [LICENSE](LICENSE).
