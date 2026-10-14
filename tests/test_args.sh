@@ -13,8 +13,10 @@
 #
 # Contract (read from the script): usage and every validation error exit 1 and print
 # to stdout; the order is root check, usage (no/empty port), port, protocol.
-# A valid port/protocol would continue into the nft steps, so those cases are only
-# probed through a later error (valid port + invalid protocol).
+# A valid port is 1-65535 in plain decimal: digits only, at most 5 characters, no leading
+# zeros. A valid port/protocol would continue into the nft steps, so those cases are only
+# probed through a later error (valid port + invalid protocol). What happens after
+# validation is covered by test_run.sh (mocked tools).
 
 set -u
 
@@ -73,7 +75,7 @@ run_script() {
   prefix=$1
   shift
   : > "$CALL_LOG"
-  OUT=$(PATH="$prefix:$FORBIDDEN_DIR:$PATH" "$TEST_SH" "$SCRIPT" "$@" 2>&1)
+  OUT=$(PATH="$prefix:$FORBIDDEN_DIR:$PATH" "$TEST_SH" "$SCRIPT" "$@" 2>&1 < /dev/null)
   RC=$?
 }
 
@@ -98,15 +100,58 @@ check "not root" 1 "Please run as root"
 
 # ── usage ────────────────────────────────────────────────────────────────────
 run_script "$FAKEROOT_DIR"
-check "no arguments" 1 "Usage: sudo ./expose-port.sh <port> [tcp|udp|both]"
+check "no arguments" 1 "Usage: sudo ./expose-port.sh [--dry-run] <port> [tcp|udp|both]"
 
 run_script "$FAKEROOT_DIR" ""
 check "empty port argument" 1 "Usage: sudo ./expose-port.sh"
 
 # ── port validation ──────────────────────────────────────────────────────────
-for bad in abc 0 65536 70000 -1 1.5 80a a80 +80 "8 0" --help -h; do
+# sign, whitespace (space, tab, newline, leading/trailing), separators, other bases,
+# out of range, and numbers too long for shell arithmetic
+TAB=$(printf '\t')
+NL=$(printf '\nx')
+NL=${NL%x}
+for bad in abc 0 65536 70000 99999 100000 -1 -0 +0 1.5 1,5 80a a80 +80 -80 "8 0" " 80" "80 " \
+           "${TAB}80" "80${TAB}" "8${NL}0" 1e3 0x50 --help -h; do
   run_script "$FAKEROOT_DIR" "$bad" both
-  check "invalid port '$bad'" 1 "Invalid port: $bad (must be 1-65535)"
+  check "invalid port '$bad'" 1 "Invalid port: $bad (must be 1-65535, digits only, no leading zeros)"
+done
+
+# very long numbers: `[ N -gt 65535 ]` fails with "Illegal number" for these and used to
+# let them through; they are rejected on length before any arithmetic
+for bad in 12345678901234567890 99999999999999999999 100000000000000000000000000000 \
+           00000000000000000001 123456; do
+  run_script "$FAKEROOT_DIR" "$bad" both
+  check "too long port '$bad'" 1 "Invalid port: $bad (must be 1-65535"
+  case "$OUT" in
+    *"Illegal number"*) fail "too long port '$bad': shell arithmetic error leaked: $OUT" ;;
+    *) pass ;;
+  esac
+done
+
+# leading zeros are rejected (ambiguous: octal for some tools), also for in-range values
+for bad in 00 01 080 0080 00080 065535; do
+  run_script "$FAKEROOT_DIR" "$bad" both
+  check "leading zeros '$bad'" 1 "Invalid port: $bad (must be 1-65535, digits only, no leading zeros)"
+done
+
+# --dry-run changes nothing about validation
+run_script "$FAKEROOT_DIR" --dry-run
+check "--dry-run without port" 1 "Usage: sudo ./expose-port.sh [--dry-run]"
+run_script "$FAKEROOT_DIR" --dry-run ""
+check "--dry-run with empty port" 1 "Usage: sudo ./expose-port.sh"
+run_script "$FAKEROOT_DIR" --dry-run 65536 both
+check "--dry-run with invalid port" 1 "Invalid port: 65536"
+run_script "$FAKEROOT_DIR" --dry-run 25565 icmp
+check "--dry-run with invalid protocol" 1 "Invalid protocol: icmp"
+run_script "$FAKEROOT_DIR" --dry-run --dry-run 25565
+check "--dry-run only counts as flag once" 1 "Invalid port: --dry-run"
+
+# extra arguments are an error, so a misplaced --dry-run can never turn into a real run
+for extra in "25565 both --dry-run" "25565 tcp extra" "--dry-run 25565 both extra"; do
+  # shellcheck disable=SC2086  # word splitting of the case list is intended
+  run_script "$FAKEROOT_DIR" $extra
+  check "extra arguments '$extra'" 1 "Too many arguments (--dry-run must come first"
 done
 
 # the port is validated before the protocol
@@ -114,7 +159,7 @@ run_script "$FAKEROOT_DIR" 0 icmp
 check "invalid port and protocol: port is reported" 1 "Invalid port: 0"
 
 # ── protocol validation (valid port, so only the protocol check can fire) ────
-for port in 1 80 25565 65535; do
+for port in 1 9 80 1000 10000 25565 65534 65535; do
   run_script "$FAKEROOT_DIR" "$port" icmp
   check "port $port is valid, protocol icmp is not" 1 "Invalid protocol: icmp (use tcp, udp, or both)"
 done

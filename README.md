@@ -30,7 +30,7 @@ Der Oracle ARM Server empfängt den Traffic auf dem öffentlichen Port und leite
   - `enp1s0` – Game Traffic (mit Public IP)
 - Tailscale auf Oracle und auf dem Heimserver installiert
 - Subnet Router auf dem Heimserver der das LAN advertised
-- Pterodactyl Wings läuft auf `192.168.10.21` (Beispiel – muss auf deine Wings VM IP angepasst werden)
+- Pterodactyl Wings läuft auf `192.168.0.21` (Standardwert im Script – bei abweichender Wings VM IP `WINGS_IP` anpassen)
 
 ---
 
@@ -48,8 +48,22 @@ chmod +x expose-port.sh
 ## Verwendung
 
 ```bash
-sudo ./expose-port.sh <port> [tcp|udp|both]
+sudo ./expose-port.sh [--dry-run] <port> [tcp|udp|both]
 ```
+
+- `<port>`: Dezimalzahl von 1 bis 65535, nur Ziffern, **ohne führende Nullen** (`080` wird abgelehnt,
+  weil manche Tools es als Oktalzahl lesen), ohne Vorzeichen und ohne Leerzeichen.
+- Protokoll: `tcp`, `udp` oder `both` (Standard).
+- `--dry-run`: zeigt die Befehle, die das System verändern würden (`nft`, `sysctl`, `ip`,
+  `systemctl`), mit dem Präfix `[dry-run]`, statt sie auszuführen. Lesende Abfragen laufen
+  trotzdem, deshalb braucht auch `--dry-run` root.
+
+Schlägt ein veränderender Befehl fehl, bricht das Script mit Exit-Code 1 ab und nennt den
+fehlgeschlagenen Befehl samt Ausgabe. Wurden davor schon Änderungen gemacht, listet es diese auf
+(**kein** automatisches Rollback). Mit `sudo nft list table ip gamenat -a` lässt sich der Stand
+prüfen; eine bestehende `/etc/nftables.conf` bleibt bei einem Fehler von `nft` unverändert (sie wird erst
+überschrieben, wenn `nft list ruleset` erfolgreich war). Zusätzliche Argumente werden abgelehnt;
+`--dry-run` muss deshalb als erstes Argument stehen.
 
 ### Beispiele
 
@@ -61,6 +75,7 @@ sudo ./expose-port.sh 27015 both    # CS2
 sudo ./expose-port.sh 7777  both    # Terraria
 sudo ./expose-port.sh 28015 both    # Rust
 sudo ./expose-port.sh 19132 udp     # Bedrock Edition
+sudo ./expose-port.sh --dry-run 25565 both   # nur anzeigen, nichts ändern
 ```
 
 ---
@@ -75,6 +90,7 @@ sudo ./expose-port.sh 19132 udp     # Bedrock Edition
 | ✅ Persistenz | Speichert alle Regeln in `/etc/nftables.conf` |
 | ✅ Boot | Aktiviert nftables als Systemd Service |
 | ✅ Duplikat-Check | Warnt wenn der Port bereits weitergeleitet wird |
+| ✅ Fehlerprüfung | Bricht bei jedem fehlgeschlagenen Befehl ab und meldet bereits Angewendetes |
 
 ---
 
@@ -106,11 +122,17 @@ Unter `http://<panel-ip>/admin/nodes/1/allocation`:
 Am Anfang des Scripts können folgende Variablen angepasst werden:
 
 ```sh
-WINGS_IP="192.168.10.21"     # Interne IP der Wings VM
+WINGS_IP="192.168.0.21"     # Interne IP der Wings VM
 PUBLIC_IFACE="enp1s0"       # NIC mit Public IP
 TAILSCALE_IFACE="tailscale0" # Tailscale Interface
 NFT_TABLE="gamenat"          # nftables Tabellenname
 ```
+
+Die Pfade `NFT_CONFIG` (Standard `/etc/nftables.conf`) und `SYSCTL_CONF` (Standard
+`/etc/sysctl.conf`) lassen sich über gleichnamige Umgebungsvariablen überschreiben; die Tests
+nutzen das, damit sie nie unter `/etc` schreiben. Achtung: Mit `sudo -E` oder einer Root-Shell,
+in der diese Variablen gesetzt sind, würde die Persistenz sonst still woanders landen als dort, wo
+der `nftables`-Dienst sie lädt.
 
 ---
 
@@ -122,7 +144,7 @@ NFT_TABLE="gamenat"          # nftables Tabellenname
 2. Tailscale Verbindung aktiv?
    ```bash
    tailscale status
-   ping 192.168.10.21
+   ping 192.168.0.21
    ```
 3. Wings läuft?
    ```bash
@@ -130,7 +152,7 @@ NFT_TABLE="gamenat"          # nftables Tabellenname
    ```
 4. Lauscht der Game Server auf dem Port?
    ```bash
-   ssh root@192.168.10.21
+   ssh root@192.168.0.21
    ss -tlnp | grep <PORT>
    ```
 
@@ -180,13 +202,17 @@ sudo nft list ruleset > /etc/nftables.conf
 
 ```bash
 sh tests/test_args.sh                            # Argument-Handling (ohne root, ohne Systemzugriff)
+sh tests/test_run.sh                             # --dry-run und Fehlerpfade gegen gemockte Tools
 shellcheck --shell=sh expose-port.sh tests/*.sh
 ```
 
-Das Script wird weder lokal noch in CI ausgef�hrt: es ver�ndert nftables, sysctl und Routing
-als root. Die Tests decken nur Pfade ab, die vor jeder �nderung abbrechen (kein root, kein
-Port, ung�ltiger Port/Protokoll); alle Systemtools sind dabei Stubs, die den Test fehlschlagen
-lassen, falls sie aufgerufen w�rden.
+Das Script wird weder lokal noch in CI auf dem echten System ausgeführt: es verändert nftables,
+sysctl und Routing als root. `test_args.sh` deckt nur Pfade ab, die vor jeder Änderung abbrechen
+(kein root, kein Port, ungültiger Port/Protokoll). `test_run.sh` führt das Script komplett aus,
+aber nur gegen Mocks von `nft`, `ip`, `sysctl`, `systemctl`, `apt-get`, `curl` und `id`, die die
+Aufrufe protokollieren (inklusive Fehlerfälle: die meisten veränderenden Befehle werden zum
+Scheitern gebracht). Alle anderen Systemtools sind Stubs, die den Test fehlschlagen lassen, falls sie
+aufgerufen würden. Beide Tests verweigern den Start als echter root.
 
 ---
 

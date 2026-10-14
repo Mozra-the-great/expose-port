@@ -74,3 +74,6 @@ jobs:
           persist-credentials: false
       - name: Argument handling tests
         run: sh tests/test_args.sh
+      # Runs the whole script, but only against mocked system tools.
+      - name: Dry-run and failure path tests (mocked tools)
+        run: sh tests/test_run.sh
