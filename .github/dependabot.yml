@@ -1,0 +1,20 @@
+version: 2
+
+# Dependabot keeps the SHA-pinned actions in .github/workflows fresh (convention C5).
+#
+# cooldown (zizmor audit dependabot-cooldown): a new release is proposed only after
+# 7 days. If a package is compromised that is usually noticed within that window;
+# without the wait the bad version would sit in a PR immediately.
+#
+# Public repo: Dependabot runs as free hosted Actions jobs. It cannot read
+# repository secrets. Merge its PRs only after `test` ran on them (C9).
+# The repo has no other package ecosystem (a single POSIX shell script).
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(actions)"
