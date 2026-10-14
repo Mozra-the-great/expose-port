@@ -147,6 +147,13 @@ check "--dry-run with invalid protocol" 1 "Invalid protocol: icmp"
 run_script "$FAKEROOT_DIR" --dry-run --dry-run 25565
 check "--dry-run only counts as flag once" 1 "Invalid port: --dry-run"
 
+# extra arguments are an error, so a misplaced --dry-run can never turn into a real run
+for extra in "25565 both --dry-run" "25565 tcp extra" "--dry-run 25565 both extra"; do
+  # shellcheck disable=SC2086  # word splitting of the case list is intended
+  run_script "$FAKEROOT_DIR" $extra
+  check "extra arguments '$extra'" 1 "Too many arguments (--dry-run must come first"
+done
+
 # the port is validated before the protocol
 run_script "$FAKEROOT_DIR" 0 icmp
 check "invalid port and protocol: port is reported" 1 "Invalid port: 0"

@@ -28,28 +28,24 @@ NFT_CONFIG="${NFT_CONFIG:-/etc/nftables.conf}"      # Persistent nftables config
 SYSCTL_CONF="${SYSCTL_CONF:-/etc/sysctl.conf}"      # Persistent sysctl settings
 # ─────────────────────────────────────────────────────────────
 
-RED='[0;31m'
-GREEN='[0;32m'
-YELLOW='[1;33m'
-NC='[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 DRY_RUN=0
 # Newline-separated list of changes already made, reported if a later step fails
 APPLIED=""
 
-log()    { printf "${GREEN}[+]${NC} %s
-" "$1"; }
-warn()   { printf "${YELLOW}[!]${NC} %s
-" "$1"; }
+log()    { printf "${GREEN}[+]${NC} %s\n" "$1"; }
+warn()   { printf "${YELLOW}[!]${NC} %s\n" "$1"; }
 # Print the error and, if some changes were already made, which ones (no rollback).
 error()  {
-    printf "${RED}[✗]${NC} %s
-" "$1"
+    printf "${RED}[✗]${NC} %s\n" "$1"
     if [ -n "$APPLIED" ]; then
         warn "Partially applied, NOT rolled back. Already changed before the failure:"
         printf '%s' "$APPLIED"
-        printf "    Inspect with: nft list table ip %s
-" "$NFT_TABLE"
+        printf "    Inspect with: nft list table ip %s\n" "$NFT_TABLE"
     fi
     exit 1
 }
@@ -61,7 +57,7 @@ ok()     { [ "$DRY_RUN" -eq 1 ] || log "$1"; }
 quote_arg() {
     case $1 in
         ''|*[!A-Za-z0-9_./:=,@%+-]*)
-            printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\''/g")" ;;
+            printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")" ;;
         *) printf '%s' "$1" ;;
     esac
 }
@@ -80,8 +76,7 @@ fmt_cmd() {
 # command is only printed.
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
-        printf '[dry-run] %s
-' "$(fmt_cmd "$@")"
+        printf '[dry-run] %s\n' "$(fmt_cmd "$@")"
         return 0
     fi
     _output=$("$@" 2>&1)
@@ -137,6 +132,12 @@ fi
 # ── Validate protocol ────────────────────────────────────────
 if [ "$PROTO" != "tcp" ] && [ "$PROTO" != "udp" ] && [ "$PROTO" != "both" ]; then
     error "Invalid protocol: $PROTO (use tcp, udp, or both)"
+fi
+
+# ── Reject extra arguments ───────────────────────────────────
+# Matters for --dry-run: "25565 both --dry-run" must not silently become a real run.
+if [ "$#" -gt 2 ]; then
+    error "Too many arguments (--dry-run must come first: ./expose-port.sh --dry-run <port> [tcp|udp|both])"
 fi
 
 printf "\n${GREEN}======================================${NC}\n"
@@ -270,7 +271,7 @@ printf "${GREEN}  Done!${NC}\n"
 printf "${GREEN}======================================${NC}\n\n"
 
 # Only an IPv4-looking answer is used; anything else (HTML error page, empty) is ignored.
-PUBLIC_IP=$(curl -s -f --max-time 5 ifconfig.me 2>/dev/null)
+PUBLIC_IP=$(curl -4 -s -f --max-time 5 ifconfig.me 2>/dev/null)
 case $PUBLIC_IP in
     ''|*[!0-9.]*) PUBLIC_IP="<your-public-ip>" ;;
 esac

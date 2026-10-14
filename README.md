@@ -61,7 +61,9 @@ sudo ./expose-port.sh [--dry-run] <port> [tcp|udp|both]
 Schlägt ein veränderender Befehl fehl, bricht das Script mit Exit-Code 1 ab und nennt den
 fehlgeschlagenen Befehl samt Ausgabe. Wurden davor schon Änderungen gemacht, listet es diese auf
 (**kein** automatisches Rollback). Mit `sudo nft list table ip gamenat -a` lässt sich der Stand
-prüfen; eine bestehende `/etc/nftables.conf` bleibt bei einem Fehler unverändert.
+prüfen; eine bestehende `/etc/nftables.conf` bleibt bei einem Fehler von `nft` unverändert (sie wird erst
+überschrieben, wenn `nft list ruleset` erfolgreich war). Zusätzliche Argumente werden abgelehnt;
+`--dry-run` muss deshalb als erstes Argument stehen.
 
 ### Beispiele
 
@@ -128,7 +130,9 @@ NFT_TABLE="gamenat"          # nftables Tabellenname
 
 Die Pfade `NFT_CONFIG` (Standard `/etc/nftables.conf`) und `SYSCTL_CONF` (Standard
 `/etc/sysctl.conf`) lassen sich über gleichnamige Umgebungsvariablen überschreiben; die Tests
-nutzen das, damit sie nie unter `/etc` schreiben.
+nutzen das, damit sie nie unter `/etc` schreiben. Achtung: Mit `sudo -E` oder einer Root-Shell,
+in der diese Variablen gesetzt sind, würde die Persistenz sonst still woanders landen als dort, wo
+der `nftables`-Dienst sie lädt.
 
 ---
 
@@ -206,8 +210,8 @@ Das Script wird weder lokal noch in CI auf dem echten System ausgeführt: es ver
 sysctl und Routing als root. `test_args.sh` deckt nur Pfade ab, die vor jeder Änderung abbrechen
 (kein root, kein Port, ungültiger Port/Protokoll). `test_run.sh` führt das Script komplett aus,
 aber nur gegen Mocks von `nft`, `ip`, `sysctl`, `systemctl`, `apt-get`, `curl` und `id`, die die
-Aufrufe protokollieren (inklusive Fehlerfälle: jeder veränderende Befehl wird einmal zum Scheitern
-gebracht). Alle anderen Systemtools sind Stubs, die den Test fehlschlagen lassen, falls sie
+Aufrufe protokollieren (inklusive Fehlerfälle: die meisten veränderenden Befehle werden zum
+Scheitern gebracht). Alle anderen Systemtools sind Stubs, die den Test fehlschlagen lassen, falls sie
 aufgerufen würden. Beide Tests verweigern den Start als echter root.
 
 ---

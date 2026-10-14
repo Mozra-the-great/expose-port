@@ -13,7 +13,9 @@ an Oracle ARM instance (nftables DNAT via Tailscale). README is in German, code 
   curl/id (call log, `MOCK_FAIL` makes a command fail); `NFT_CONFIG`/`SYSCTL_CONF` point into
   a temp dir. Also refuses to run as real root.
 - Every mutating command goes through `run` in the script (checks the exit code, records it for
-  the "partially applied" report, prints instead in `--dry-run`). New mutating steps must too.
+  the "partially applied" report, prints instead in `--dry-run`). The two steps that need
+  redirection (append to sysctl.conf, save the ruleset) do the same by hand. New mutating steps
+  must be checked and recorded as well; extra arguments are rejected so `--dry-run` must be first.
 - Keep LF line endings (`.gitattributes`); a CRLF shebang breaks the script on Linux.
 
 ## Commands
