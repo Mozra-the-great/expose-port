@@ -6,15 +6,20 @@ an Oracle ARM instance (nftables DNAT via Tailscale). README is in German, code 
 
 ## Important
 - The script runs as root and changes nftables, sysctl, routing and `/etc/nftables.conf`.
-  **Never execute it on a dev machine or in CI.** Checks are static plus argument-handling
-  tests that stop before any change.
-- `tests/test_args.sh` stubs every system tool (they fail the test if called), fakes `id -u`
-  and therefore refuses to run as real root.
+  **Never execute it on a dev machine or in CI.** Checks are static plus tests against stubs.
+- `tests/test_args.sh` (argument handling, stops before any change) stubs every system tool
+  (they fail the test if called), fakes `id -u` and therefore refuses to run as real root.
+- `tests/test_run.sh` runs the whole script against mocks of nft/ip/sysctl/systemctl/apt-get/
+  curl/id (call log, `MOCK_FAIL` makes a command fail); `NFT_CONFIG`/`SYSCTL_CONF` point into
+  a temp dir. Also refuses to run as real root.
+- Every mutating command goes through `run` in the script (checks the exit code, records it for
+  the "partially applied" report, prints instead in `--dry-run`). New mutating steps must too.
 - Keep LF line endings (`.gitattributes`); a CRLF shebang breaks the script on Linux.
 
 ## Commands
 ```sh
 sh tests/test_args.sh                              # argument-handling tests (no root needed)
+sh tests/test_run.sh                               # dry-run, normal run and failure paths (mocked tools)
 shellcheck --shell=sh expose-port.sh tests/*.sh    # .shellcheckrc excludes SC2059 on purpose
 sh -n expose-port.sh && dash -n expose-port.sh     # syntax only
 ```
@@ -28,3 +33,6 @@ sh -n expose-port.sh && dash -n expose-port.sh     # syntax only
 ## Conventions
 - Conventional commits in English, feature branches, no direct pushes to `main`.
 - Validation order in the script is root check, usage, port, protocol; the tests pin it.
+- Port policy: digits only, 1-65535, max 5 characters, no leading zeros (checked textually before
+  any arithmetic).
+- `WINGS_IP` is 192.168.0.21 (homelab-infra inventory, host `wings`); keep README and script equal.
