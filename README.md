@@ -176,6 +176,20 @@ sudo nft list ruleset > /etc/nftables.conf
 
 ---
 
+## Tests & CI
+
+```bash
+sh tests/test_args.sh                            # Argument-Handling (ohne root, ohne Systemzugriff)
+shellcheck --shell=sh expose-port.sh tests/*.sh
+```
+
+Das Script wird weder lokal noch in CI ausgeführt: es verändert nftables, sysctl und Routing
+als root. Die Tests decken nur Pfade ab, die vor jeder Änderung abbrechen (kein root, kein
+Port, ungültiger Port/Protokoll); alle Systemtools sind dabei Stubs, die den Test fehlschlagen
+lassen, falls sie aufgerufen würden.
+
+---
+
 ## Lizenz
 
 GNU General Public License v3.0 â€” siehe [LICENSE](LICENSE).

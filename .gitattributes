@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings - CRLF breaks the shebang on Linux
+# (`/bin/sh\r: bad interpreter`), e.g. after a checkout with core.autocrlf=true.
+* text=auto eol=lf
+*.sh text eol=lf

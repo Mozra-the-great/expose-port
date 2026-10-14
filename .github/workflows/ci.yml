@@ -1,0 +1,76 @@
+name: CI
+
+# Three stable job ids, meant to be the required status checks: `shellcheck`,
+# `syntax` and `test`. There is deliberately NO workflow-level `paths:` filter
+# (convention C1): a required check whose workflow does not start is reported as
+# pending forever, not as skipped.
+#
+# expose-port.sh changes nftables, sysctl and routing as root, so it is NEVER
+# executed against the runner: the checks are static (shellcheck, shell syntax) plus
+# argument-handling tests that stop before any change, with every system tool replaced
+# by a stub that fails the test if it is called.
+#
+# Public repo => GitHub-hosted `ubuntu-latest` (free). Never a self-hosted runner.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # shellcheck is preinstalled on ubuntu-latest; .shellcheckrc holds the one
+      # deliberate exclusion (SC2059) with its reason.
+      - name: ShellCheck
+        run: shellcheck --shell=sh expose-port.sh tests/*.sh
+
+  syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # `-n` parses without executing anything.
+      - name: Syntax check (sh)
+        run: sh -n expose-port.sh
+      - name: Syntax check (dash)
+        run: |
+          if command -v dash >/dev/null 2>&1; then
+            dash -n expose-port.sh
+          else
+            echo "dash not available - skipped"
+          fi
+      # The shebang must be intact (a CRLF checkout breaks `#!/bin/sh`).
+      - name: Shebang and line endings
+        run: |
+          [ "$(head -n 1 expose-port.sh)" = "#!/bin/sh" ]
+          ! grep -q "$(printf '\r')" expose-port.sh
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Argument handling tests
+        run: sh tests/test_args.sh

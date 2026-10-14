@@ -1,0 +1,4 @@
+# SC2059 (variables in the printf format string) is intentional in expose-port.sh:
+# the ANSI colour codes ($GREEN, $YELLOW, $NC) are set once at the top and written
+# into the format on purpose. Every other check stays on.
+disable=SC2059
