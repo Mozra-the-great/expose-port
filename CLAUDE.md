@@ -31,6 +31,7 @@ sh -n expose-port.sh && dash -n expose-port.sh     # syntax only
 - `workflow-lint.yml`: actionlint + zizmor. `secret-scan.yml`: gitleaks on PRs.
 - No Claude workflows by design (single script, rare changes). Actions pinned by SHA;
   Dependabot keeps them fresh.
+- CodeQL runs as GitHub default setup (actions, default suite, not a workflow file); the `CodeQL` status check is required by the ruleset.
 
 ## Conventions
 - Conventional commits in English, feature branches, no direct pushes to `main`.
